@@ -1,0 +1,28 @@
+{
+  "settings": {
+    "eventName": "Encontro de Novembro",
+    "organizerEmail": "pauloeduardo.braga@hotmail.com",
+    "targetCount": 16,
+    "expectedParticipants": [
+      "Yan",
+      "Maria",
+      "Beatriz",
+      "Arlysson",
+      "Esther",
+      "Anna Clara",
+      "Ylbert",
+      "Josemar",
+      "Pamela",
+      "Diego",
+      "Douglas",
+      "Paulo",
+      "Rodrigo",
+      "Tabatha",
+      "Ana Carolina",
+      "Ana Júlia"
+    ],
+    "emailLogs": []
+  },
+  "participants": {},
+  "lastUpdated": "2026-10-07T12:16:56.557Z"
+}
