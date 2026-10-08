@@ -16,6 +16,8 @@ import {
 import {
   getStoredUserName,
   saveStoredUserName,
+  getStoredAvailability,
+  saveStoredAvailability,
   triggerHaptic,
 } from '@/lib/client-session';
 import {
@@ -64,40 +66,12 @@ export default function Home() {
     }
   }, [fetchState]);
 
-  // When currentUserName or appState changes, load the participant's saved choices
-  useEffect(() => {
-    if (!currentUserName || !appState) return;
-
-    const lowerName = currentUserName.trim().toLowerCase();
-    const found = Object.values(appState.participants).find(
-      (p) => p.name.trim().toLowerCase() === lowerName
-    );
-
-    if (found && found.availability) {
-      setMyAvailability(found.availability);
-    }
-  }, [currentUserName, appState]);
-
-  // Handle changing user name
-  const handleSetUserName = (name: string) => {
-    const clean = name.trim();
-    setCurrentUserName(clean);
-    saveStoredUserName(clean);
-
-    if (appState) {
-      const found = Object.values(appState.participants).find(
-        (p) => p.name.trim().toLowerCase() === clean.toLowerCase()
-      );
-      if (found && found.availability) {
-        setMyAvailability(found.availability);
-      }
-    }
-  };
-
   // Save availability to server
   const saveAvailabilityToServer = useCallback(
     async (name: string, updatedAvailability: Record<string, AvailabilityState>) => {
       if (!name.trim()) return;
+      // Immediately cache in device's LocalStorage!
+      saveStoredAvailability(name.trim(), updatedAvailability);
       setIsSaving(true);
       try {
         const res = await fetch('/api/availability', {
@@ -127,6 +101,59 @@ export default function Home() {
     },
     [fetchState]
   );
+
+  // When currentUserName or appState changes, load the participant's saved choices
+  useEffect(() => {
+    if (!currentUserName) return;
+
+    const lowerName = currentUserName.trim().toLowerCase();
+    const serverParticipant = appState?.participants
+      ? Object.values(appState.participants).find(
+          (p) => p.name.trim().toLowerCase() === lowerName
+        )
+      : null;
+
+    if (
+      serverParticipant &&
+      serverParticipant.availability &&
+      Object.keys(serverParticipant.availability).length > 0
+    ) {
+      setMyAvailability(serverParticipant.availability);
+      saveStoredAvailability(currentUserName, serverParticipant.availability);
+    } else {
+      // Check local storage backup on this device!
+      const localBackup = getStoredAvailability(currentUserName);
+      if (localBackup && Object.keys(localBackup).length > 0) {
+        setMyAvailability(localBackup);
+        // Automatically sync to server
+        saveAvailabilityToServer(currentUserName, localBackup);
+      }
+    }
+  }, [currentUserName, appState, saveAvailabilityToServer]);
+
+  // Handle changing user name
+  const handleSetUserName = (name: string) => {
+    const clean = name.trim();
+    setCurrentUserName(clean);
+    saveStoredUserName(clean);
+
+    if (appState) {
+      const found = Object.values(appState.participants).find(
+        (p) => p.name.trim().toLowerCase() === clean.toLowerCase()
+      );
+      if (found && found.availability && Object.keys(found.availability).length > 0) {
+        setMyAvailability(found.availability);
+        saveStoredAvailability(clean, found.availability);
+        return;
+      }
+    }
+
+    const localBackup = getStoredAvailability(clean);
+    if (localBackup && Object.keys(localBackup).length > 0) {
+      setMyAvailability(localBackup);
+      saveAvailabilityToServer(clean, localBackup);
+    }
+  };
 
   // Toggle shift state (Cycle: none -> can -> if_needed -> none)
   const handleToggleMyShift = (slotKey: string) => {

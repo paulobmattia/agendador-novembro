@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { Redis } from '@upstash/redis';
 import {
   DEFAULT_PARTICIPANTS_16,
   ORGANIZER_DEFAULT_EMAIL,
@@ -72,35 +73,35 @@ export function getInitialSeedState(): AppState {
   };
 }
 
-// Helper to get Upstash / Vercel KV credentials
-function getKvConfig(): { url: string; token: string } | null {
+// Helper to get Upstash Redis client
+function getRedisClient(): Redis | null {
   const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
   if (url && token) {
-    return { url, token };
+    try {
+      return new Redis({ url, token });
+    } catch (e) {
+      console.warn('Failed to initialize Redis client', e);
+    }
   }
   return null;
 }
 
 export async function readAppStateAsync(): Promise<AppState> {
-  const kv = getKvConfig();
+  const redis = getRedisClient();
 
   // 1. Try Upstash / Vercel KV if available
-  if (kv) {
+  if (redis) {
     try {
-      const res = await fetch(`${kv.url}/get/${REDIS_KEY}`, {
-        headers: { Authorization: `Bearer ${kv.token}` },
-        cache: 'no-store',
-      });
-      const data = await res.json();
-      if (data && data.result) {
-        const parsed = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
+      const data = await redis.get<any>(REDIS_KEY);
+      if (data) {
+        const parsed = typeof data === 'string' ? JSON.parse(data) : data;
         const sanitized = sanitizeState(parsed);
         inMemoryState = sanitized;
         return sanitized;
       }
     } catch (err) {
-      console.warn('KV read failed, falling back to local/memory:', err);
+      console.warn('Redis read failed, falling back to local/memory:', err);
     }
   }
 
@@ -116,21 +117,14 @@ export async function readAppStateAsync(): Promise<AppState> {
 export async function saveAppStateAsync(state: AppState): Promise<void> {
   state.lastUpdated = new Date().toISOString();
   inMemoryState = state;
-  const kv = getKvConfig();
+  const redis = getRedisClient();
 
   // 1. Save to Upstash / Vercel KV if available
-  if (kv) {
+  if (redis) {
     try {
-      await fetch(`${kv.url}/set/${REDIS_KEY}`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${kv.token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(state),
-      });
+      await redis.set(REDIS_KEY, state);
     } catch (err) {
-      console.warn('KV save failed:', err);
+      console.warn('Redis save failed:', err);
     }
   }
 

@@ -25,6 +25,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Save participant availability
+    console.log(`[AVAILABILITY_SUBMISSION] ${name}:`, JSON.stringify(availability));
     const { state, participant } = await updateParticipantAvailabilityAsync(name, availability);
 
     // Check automated notifications for organizer (16 completed or 100% convergence)

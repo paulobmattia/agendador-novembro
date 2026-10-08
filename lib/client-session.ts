@@ -51,6 +51,31 @@ export function saveStoredUserName(name: string): void {
   }
 }
 
+const AVAILABILITY_STORAGE_PREFIX = 'agendador_availability_';
+
+export function getStoredAvailability(name: string): Record<string, 'none' | 'can' | 'if_needed'> | null {
+  if (typeof window === 'undefined' || !name) return null;
+  try {
+    const raw = localStorage.getItem(`${AVAILABILITY_STORAGE_PREFIX}${name.trim().toLowerCase()}`);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {
+    console.warn('LocalStorage availability read failed', e);
+  }
+  return null;
+}
+
+export function saveStoredAvailability(name: string, availability: Record<string, any>): void {
+  if (typeof window === 'undefined' || !name) return;
+  try {
+    localStorage.setItem(
+      `${AVAILABILITY_STORAGE_PREFIX}${name.trim().toLowerCase()}`,
+      JSON.stringify(availability)
+    );
+  } catch (e) {
+    console.warn('LocalStorage availability save failed', e);
+  }
+}
+
 // Tactile feedback (Vibration API)
 export function triggerHaptic(type: 'light' | 'medium' | 'success' | 'warn' = 'light'): void {
   if (typeof window === 'undefined' || !navigator.vibrate) return;
